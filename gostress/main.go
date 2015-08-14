@@ -33,14 +33,14 @@ func main() {
 	f := newFun(choice(basicTypes...))
 
 	if *want == "" {
-		fmt.Fprintf(w, "// generate -seed %d\n", *seed)
+		fmt.Fprintf(w, "// gostress -seed %d\n", *seed)
 		fmt.Fprintf(w, "package main\n")
 		fmt.Fprintf(w, "import \"fmt\"\n")
 		fmt.Fprintf(w, "func main() {\n")
 		fmt.Fprintf(w, "fmt.Println(%s())\n", f.nam)
 		fmt.Fprintf(w, "}\n")
 	} else {
-		fmt.Fprintf(w, "// generate -seed %d\n", *seed)
+		fmt.Fprintf(w, "// gostress -seed %d\n", *seed)
 		fmt.Fprintf(w, "package main\n")
 		fmt.Fprintf(w, "import \"fmt\"\n")
 		fmt.Fprintf(w, "import \"os\"\n")
