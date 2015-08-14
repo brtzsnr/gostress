@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	dir = flag.String("dir", "", "directory where to write the output file")
 	seed = flag.Int64("seed", 1, "random seed")
 	out = flag.String("out", "-", "output file")
 )
@@ -17,9 +16,6 @@ var (
 func main() {
 	flag.Parse()
 	rand.Seed(*seed)
-	if *dir == "" {
-		log.Fatal("Missing --dir flag")
-	}
 
 	var w *os.File
 	if *out == "-" {
