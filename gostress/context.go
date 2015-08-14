@@ -62,7 +62,7 @@ func newFnct(typ string) *fnct {
 	}
 
 	for i := 0; i < numStatements; i++ {
-		switch o := choice(":=", "=", "++", "--"); o {
+		switch o := choice(":=", "=", "+=", "-=", "*=", "++", "--"); o {
 		case "return":
 			f.stm = append(f.stm, stmt{
 				opr: "return",
@@ -74,7 +74,7 @@ func newFnct(typ string) *fnct {
 				opr: "_",
 				lit: l,
 			})
-		case "=":
+		case "=", "+=", "-=", "*=":
 			if l := f.getVariable(""); l != nil {
 				f.stm = append(f.stm, stmt{
 					opr: o,
@@ -268,7 +268,7 @@ func (s *stmt) dump(w io.Writer) {
 	switch s.opr {
 	case "return":
 		fmt.Fprintf(w, "return %s\n", s.exp.str)
-	case ":=", "=":
+	case ":=", "=", "+=", "-=", "*=":
 		if s.exp.typ == "-" && s.lit.typ != "int" {
 			fmt.Fprintf(w, "%s %s %s(%s) // %s\n", s.lit.nam, s.opr, s.lit.typ, s.exp.str, s.lit.typ)
 		} else {
