@@ -10,13 +10,9 @@ var (
 	basicTypes = []string{"-", "int", "uint", "int8", "uint8", "int64", "uint64"}
 	idSeq      = make(map[string]int)
 
-	exprDepth    = 2
-	numVariables = 5
-)
-
-const (
-	stmtOas = iota
-	stmtReturn
+	exprDepth     = 5
+	numVariables  = 10
+	numStatements = 10
 )
 
 type fun struct {
@@ -39,7 +35,7 @@ type lite struct { // a variable
 }
 
 type stmt struct {
-	opr int
+	opr string
 	lit *lite
 	exp *expr
 }
@@ -48,13 +44,36 @@ func newFun(typ string) *fun {
 	if typ == "-" {
 		typ = "int"
 	}
-
 	f := &fun{
-		nam: newId("f"),
+		nam: newId("f")+"_ssa",
 		typ: typ,
 	}
+
+	for i := 0; i < numStatements; i++ {
+		switch o := choice(":=", "++", "--"); o {
+		case "return":
+			f.stm = append(f.stm, stmt{
+				opr: "return",
+				exp: f.newExpr(typ, 0),
+			})
+		case ":=":
+			l := f.newLite(choice(basicTypes...))
+			f.stm = append(f.stm, stmt{
+				opr: "_",
+				lit: l,
+			})
+		case "++", "--":
+			if l := f.getLit(""); l != nil {
+				f.stm = append(f.stm, stmt{
+					opr: o,
+					lit: l,
+				})
+			}
+		}
+	}
+
 	f.stm = append(f.stm, stmt{
-		opr: stmtReturn,
+		opr: "return",
 		exp: f.newExpr(typ, 0),
 	})
 	return f
@@ -70,19 +89,21 @@ func (f *fun) dump(w io.Writer) {
 }
 
 func (f *fun) newLite(typ string) *lite {
-
 	// placeholder.
 	var nl, ns int
 	nl, f.lit = len(f.lit), append(f.lit, lite{})
 	e := f.newExpr(typ, 0)
 	ns, f.stm = len(f.stm), append(f.stm, stmt{})
 
+	if typ == "-" {
+		typ = "int"
+	}
 	f.lit[nl] = lite{
 		typ: typ,
 		nam: newId("v"),
 	}
 	f.stm[ns] = stmt{
-		opr: stmtOas,
+		opr: ":=",
 		lit: &f.lit[nl],
 		exp: e,
 	}
@@ -100,14 +121,31 @@ func conv(e *expr, typ string) *expr {
 	}
 }
 
+// Returns a random lit. Returns nil if none is found.
+func (f *fun) getLit(typ string) *lite {
+	if len(f.lit) == 0 {
+		return nil
+	}
+	for i := 0; i < 5; i++ {
+		l := &f.lit[rnd(len(f.lit))]
+		if (typ == "" || l.typ == typ) && l.nam != "" {
+			return l
+		}
+	}
+	return nil
+}
+
 func (f *fun) newExpr(typ string, dep int) *expr {
-	if rnd(exprDepth) == 0 || dep > exprDepth*2 {
+	if rnd(exprDepth) == 0 || dep > exprDepth {
 	loop:
-		switch rnd(3) {
+		switch rnd(5) {
 		case 0: // constant
+			if rnd(10) != 0 { // don't generate many constants
+				break
+			}
 			return &expr{
 				typ: "-",
-				str: fmt.Sprintf("%d", rnd(11)),
+				str: fmt.Sprintf("%d", rnd(4)),
 				atm: true,
 			}
 
@@ -122,33 +160,21 @@ func (f *fun) newExpr(typ string, dep int) *expr {
 				str: l.nam,
 				atm: true,
 			}
-		case 2: // reuse lit
-			if typ == "-" || len(f.lit) == 0 {
-				break
+		case 3: // reuse lit
+			if l := f.getLit(typ); l != nil {
+				return conv(&expr{
+					typ: l.typ,
+					str: l.nam,
+					atm: true,
+				}, typ)
 			}
-
-			// Try to pick a variable that has the same type.
-			var l *lite
-			for i := 0; i < 3 && (l == nil || l.nam == "" || l.typ != typ); i++ {
-				l = &f.lit[rnd(len(f.lit))]
-			}
-			if l.nam == "" {
-				// Picked a placeholter.
-				break
-			}
-
-			return conv(&expr{
-				typ: l.typ,
-				str: l.nam,
-				atm: true,
-			}, typ)
 		}
 		goto loop
 	}
 
 retry:
-	switch op := choice("+", "-", "*", "()", "<<", ">>", "conv"); op {
-	case "+", "-", "*":
+	switch op := choice("+", "-", "*", "&", "|", "^", "()", "<<", ">>", "++", "--", "conv"); op {
+	case "+", "-", "*", "&", "|", "^":
 		l := f.newExpr(typ, dep+1)
 		r := f.newExpr(typ, dep+1)
 		if l.typ == "-" && r.typ == "-" {
@@ -172,11 +198,13 @@ retry:
 			typ: typ,
 			str: fmt.Sprintf("%s %s %s", l.str, op, r.str),
 		}
-
 	case "()":
 		e := f.newExpr(typ, dep+1)
 		if e.atm {
 			return e
+		}
+		if e.typ == "-" {
+			typ = "-"
 		}
 		return &expr{
 			typ: typ,
@@ -195,14 +223,18 @@ retry:
 
 func (s *stmt) dump(w io.Writer) {
 	switch s.opr {
-	case stmtReturn:
+	case "return":
 		fmt.Fprintf(w, "return %s\n", s.exp.str)
-	case stmtOas:
+	case ":=":
 		if s.exp.typ == "-" {
 			fmt.Fprintf(w, "%s := %s(%s) // %s\n", s.lit.nam, s.lit.typ, s.exp.str, s.lit.typ)
 		} else {
 			fmt.Fprintf(w, "%s := %s // %s\n", s.lit.nam, s.exp.str, s.lit.typ)
 		}
+	case "_":
+		fmt.Fprintf(w, "_ = %s\n", s.lit.nam)
+	case "++", "--":
+		fmt.Fprintf(w, "%s%s\n", s.lit.nam, s.opr)
 	}
 }
 
