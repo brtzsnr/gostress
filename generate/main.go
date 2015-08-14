@@ -11,6 +11,7 @@ import (
 var (
 	seed = flag.Int64("seed", 1, "random seed")
 	out = flag.String("out", "-", "output file")
+	want = flag.String("want", "", "wanted result")
 )
 
 func main() {
@@ -30,7 +31,26 @@ func main() {
 	}
 
 	f := newFun(choice(basicTypes...))
-	fmt.Fprintf(w, "package main\nimport \"fmt\"\n")
-	fmt.Fprintf(w, "func main() {\nfmt.Println(%s())\n}\n", f.nam)
+
+	if *want == "" {
+		fmt.Fprintf(w, "// generate -seed %d\n", *seed)
+		fmt.Fprintf(w, "package main\n")
+		fmt.Fprintf(w, "import \"fmt\"\n")
+		fmt.Fprintf(w, "func main() {\n")
+		fmt.Fprintf(w, "fmt.Println(%s())\n", f.nam)
+		fmt.Fprintf(w, "}\n")
+	} else {
+		fmt.Fprintf(w, "// generate -seed %d\n", *seed)
+		fmt.Fprintf(w, "package main\n")
+		fmt.Fprintf(w, "import \"fmt\"\n")
+		fmt.Fprintf(w, "import \"os\"\n")
+		fmt.Fprintf(w, "func main() {\n")
+		fmt.Fprintf(w, "if got := %s(); got != %s {\n", f.nam, *want)
+		fmt.Fprintf(w, "fmt.Printf(\"%s() = %%v, wanted %s\\n\", got)\n", f.nam, *want)
+		fmt.Fprintf(w, "os.Exit(1)\n")
+		fmt.Fprintf(w, "}\n")
+		fmt.Fprintf(w, "}\n")
+	}
+
 	f.dump(w)
 }

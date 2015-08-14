@@ -1,38 +1,33 @@
 #!/bin/bash
 
 while `true`; do
+  # generate a random program and record the value.
   seed=$RANDOM$RANDOM
-  generate -dir ./ -seed $seed -out a$$.go
+  generate -seed $seed -out tmp.a$$.go
 
-  GOROOT=$HOME/go1.4 $HOME/go1.4/bin/go build a$$.go 2> /dev/null
+  GOROOT=$HOME/go1.4 $HOME/go1.4/bin/go build tmp.a$$.go 2> /dev/null
   if [ $? -ne 0 ]; then
     #echo =================================
-    #cat a.go
+    #cat a$$.go
     #echo =================================
     continue
   fi
 
-  ./a$$ &> good$$
+  # generate the same program but now it tests the result.
+  ./tmp.a$$ > tmp.good$$
+  generate -seed $seed -out tmp.a$$.go -want `cat tmp.good$$`
 
-  GOROOT=$HOME/go $HOME/go/bin/go build a$$.go 2> log$$
+  GOROOT=$HOME/go $HOME/go/bin/go build tmp.a$$.go 2> tmp.log$$
   if [ $? -ne 0 ]; then
     echo broken $seed
-    tail -n1 log$$
-
-    printf "// " > broken-$seed.go
-    tail -n1 log$$ >> broken-$seed.go
-    cat a$$.go >> broken-$seed.go
+    tail -n1 tmp.log$$
     continue
   fi
-  ./a$$ &> bad$$
 
-  diff -q -w good$$ bad$$
+  ./tmp.a$$
   if [ $? -ne 0 ]; then
     echo failed $seed
-    print good `cat good$$`
-    print bad `cat bad$$`
-
-    cp a$$.go failed-$seed.go
+    cp tmp.a$$.go failed-$seed.go
     continue
   fi
 done
