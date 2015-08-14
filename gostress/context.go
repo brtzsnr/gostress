@@ -10,9 +10,9 @@ var (
 	basicTypes = []string{"int", "uint", "int8", "uint8", "int64", "uint64"}
 	idSeq      = make(map[string]int)
 
-	exprDepth     = 5
-	numVariables  = 20
-	numStatements = 20
+	exprDepth     = 4
+	numVariables  = 10
+	numStatements = 10
 	numArgs       = 5
 )
 
