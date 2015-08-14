@@ -154,39 +154,28 @@ func (f *fnct) getVariable(typ string) *vrbl {
 	return nil
 }
 
+// getLiteral returns a constant or a variable.
+func (f *fnct) getLiteral(typ string) *expr {
+	if rnd(25) == 0 { // don't generate many constants
+		return &expr{
+			typ: "-",
+			str: fmt.Sprintf("%d", rnd(4)),
+			atm: true,
+		}
+	}
+	if l := f.getVariable(typ); l != nil {
+		return conv(&expr{
+			typ: l.typ,
+			str: l.nam,
+			atm: true,
+		}, typ)
+	}
+	return f.getLiteral(typ)
+}
+
 func (f *fnct) newExpr(typ string, dep int) *expr {
 	if rnd(exprDepth) == 0 || dep > exprDepth {
-	loop:
-		switch rnd(3) {
-		case 0: // constant
-			if rnd(25) != 0 { // don't generate many constants
-				break
-			}
-			return &expr{
-				typ: "-",
-				str: fmt.Sprintf("%d", rnd(4)),
-				atm: true,
-			}
-		case 1: // new lit
-			if typ == "-" || len(f.lit) >= numVariables {
-				break
-			}
-			l := f.newVariable(typ)
-			return &expr{
-				typ: l.typ,
-				str: l.nam,
-				atm: true,
-			}
-		case 2: // reuse lit
-			if l := f.getVariable(typ); l != nil {
-				return conv(&expr{
-					typ: l.typ,
-					str: l.nam,
-					atm: true,
-				}, typ)
-			}
-		}
-		goto loop
+		return f.getLiteral(typ)
 	}
 
 retry:
