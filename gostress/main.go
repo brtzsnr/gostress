@@ -41,7 +41,7 @@ func main() {
 		fmt.Fprintf(w, "fmt.Println(%s)\n", m.call(f).str)
 		fmt.Fprintf(w, "}\n")
 	} else {
-		fmt.Fprintf(w, "// gostress -seed %d\n", *seed)
+		fmt.Fprintf(w, "// gostress -seed %d -want %s\n", *seed, *want)
 		fmt.Fprintf(w, "package main\n")
 		fmt.Fprintf(w, "import \"fmt\"\n")
 		fmt.Fprintf(w, "import \"os\"\n")
