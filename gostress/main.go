@@ -30,14 +30,15 @@ func main() {
 		defer w.Close()
 	}
 
-	f := newFun(choice(basicTypes...))
+	m := &fnct{nam: "main", typ: ""}
+	f := newFnct(choice(basicTypes...))
 
 	if *want == "" {
 		fmt.Fprintf(w, "// gostress -seed %d\n", *seed)
 		fmt.Fprintf(w, "package main\n")
 		fmt.Fprintf(w, "import \"fmt\"\n")
 		fmt.Fprintf(w, "func main() {\n")
-		fmt.Fprintf(w, "fmt.Println(%s())\n", f.nam)
+		fmt.Fprintf(w, "fmt.Println(%s)\n", m.call(f).str)
 		fmt.Fprintf(w, "}\n")
 	} else {
 		fmt.Fprintf(w, "// gostress -seed %d\n", *seed)
@@ -45,8 +46,8 @@ func main() {
 		fmt.Fprintf(w, "import \"fmt\"\n")
 		fmt.Fprintf(w, "import \"os\"\n")
 		fmt.Fprintf(w, "func main() {\n")
-		fmt.Fprintf(w, "if got := %s(); got != %s {\n", f.nam, *want)
-		fmt.Fprintf(w, "fmt.Printf(\"%s() = %%v, wanted %s\\n\", got)\n", f.nam, *want)
+		fmt.Fprintf(w, "if got := %s; got != %s {\n", m.call(f).str, *want)
+		fmt.Fprintf(w, "fmt.Printf(\"%s = %%v, wanted %s\\n\", got)\n", m.call(f).str, *want)
 		fmt.Fprintf(w, "os.Exit(1)\n")
 		fmt.Fprintf(w, "}\n")
 		fmt.Fprintf(w, "}\n")

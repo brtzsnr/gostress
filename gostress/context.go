@@ -7,12 +7,13 @@ import (
 )
 
 var (
-	basicTypes = []string{"-", "int", "uint", "int8", "uint8", "int64", "uint64"}
+	basicTypes = []string{"int", "uint", "int8", "uint8", "int64", "uint64"}
 	idSeq      = make(map[string]int)
 
 	exprDepth     = 5
-	numVariables  = 10
-	numStatements = 10
+	numVariables  = 20
+	numStatements = 20
+	numArgs       = 5
 )
 
 // fnct represents a function.
@@ -20,6 +21,7 @@ type fnct struct {
 	typ string // returning type
 	nam string // name of the function
 
+	arg []vrbl
 	lit []vrbl // a list of live literals
 	stm []stmt // a list of statements
 }
@@ -41,14 +43,22 @@ type stmt struct {
 	exp *expr  // expression
 }
 
-// newFun generates and returns a new function.
-func newFun(typ string) *fnct {
+// newFnct generates and returns a new function.
+func newFnct(typ string) *fnct {
 	if typ == "-" {
 		typ = "int"
 	}
 	f := &fnct{
 		nam: newId("f") + "_ssa",
 		typ: typ,
+	}
+
+	argc := rnd(numArgs+1)
+	for i := 0; i < argc; i++ {
+		f.arg = append(f.arg, vrbl{
+			nam: newId("a"),
+			typ: choice(basicTypes...),
+		})
 	}
 
 	for i := 0; i < numStatements; i++ {
@@ -90,7 +100,11 @@ func newFun(typ string) *fnct {
 }
 
 func (f *fnct) dump(w io.Writer) {
-	fmt.Fprintf(w, "func %s() %s {\n", f.nam, f.typ)
+	fmt.Fprintf(w, "func %s(", f.nam)
+	for _, a := range f.arg {
+		fmt.Fprintf(w, "%s %s, ", a.nam, a.typ)
+	}
+	fmt.Fprintf(w, ") %s {\n", f.typ)
 	fmt.Fprintf(w, "switch {} // prevent inlining\n")
 	for i := range f.stm {
 		f.stm[i].dump(w)
@@ -142,26 +156,27 @@ func conv(e *expr, typ string) *expr {
 // getVariable returns a random live variable. Returns nil if none is found.
 // typ == "" means any type.
 func (f *fnct) getVariable(typ string) *vrbl {
-	if len(f.lit) == 0 {
+	if rnd(10) == 0 {
 		return nil
 	}
-	for i := 0; i < 5; i++ {
+	if rnd(2) == 0 && len(f.lit) > 0 {
 		l := &f.lit[rnd(len(f.lit))]
-		if (typ == "" || l.typ == typ) && l.nam != "" {
+		if typ == "" || l.typ == typ {
+			return l
+		}
+	} else if len(f.arg) > 0 {
+		l := &f.arg[rnd(len(f.arg))]
+		if typ == "" || l.typ == typ {
 			return l
 		}
 	}
-	return nil
+	return f.getVariable(typ)
 }
 
 // getLiteral returns a constant or a variable.
 func (f *fnct) getLiteral(typ string) *expr {
 	if rnd(25) == 0 { // don't generate many constants
-		return &expr{
-			typ: "-",
-			str: fmt.Sprintf("%d", rnd(4)),
-			atm: true,
-		}
+		return constant()
 	}
 	if l := f.getVariable(typ); l != nil {
 		return conv(&expr{
@@ -172,6 +187,28 @@ func (f *fnct) getLiteral(typ string) *expr {
 	}
 	return f.getLiteral(typ)
 }
+
+func (f *fnct) call(o *fnct) *expr {
+	str := o.nam + "("
+	for range o.arg {
+		str += fmt.Sprintf("%d, ", rnd(10))
+	}
+	str += ")"
+
+	return &expr{
+		typ: o.typ,
+		str: str,
+	}
+}
+
+func constant() *expr {
+	return &expr{
+		typ: "-",
+		str: fmt.Sprintf("%d", rnd(4)),
+		atm: true,
+	}
+}
+
 
 func (f *fnct) newExpr(typ string, dep int) *expr {
 	if rnd(exprDepth) == 0 || dep > exprDepth {
