@@ -3,7 +3,7 @@
 while `true`; do
   # generate a random program and record the value.
   seed=$RANDOM$RANDOM
-  generate -seed $seed -out tmp.a$$.go
+  gostress -seed $seed -out tmp.a$$.go
 
   GOROOT=$HOME/go1.4 $HOME/go1.4/bin/go build tmp.a$$.go 2> /dev/null
   if [ $? -ne 0 ]; then
@@ -15,7 +15,7 @@ while `true`; do
 
   # generate the same program but now it tests the result.
   ./tmp.a$$ > tmp.good$$
-  generate -seed $seed -out tmp.a$$.go -want `cat tmp.good$$`
+  gostress -seed $seed -out tmp.a$$.go -want `cat tmp.good$$`
 
   GOROOT=$HOME/go $HOME/go/bin/go build tmp.a$$.go 2> tmp.log$$
   if [ $? -ne 0 ]; then
