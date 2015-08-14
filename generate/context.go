@@ -15,12 +15,13 @@ var (
 	numStatements = 10
 )
 
-type fun struct {
+// fnct represents a function.
+type fnct struct {
 	typ string // returning type
 	nam string // name of the function
 
-	lit []lite
-	stm []stmt
+	lit []lite // a list of live literals
+	stm []stmt // a list of statements
 }
 
 type expr struct {
@@ -30,22 +31,23 @@ type expr struct {
 }
 
 type lite struct { // a variable
-	typ string
-	nam string
+	typ string // variable's type
+	nam string // variable's name.
 }
 
 type stmt struct {
-	opr string
-	lit *lite
-	exp *expr
+	opr string // operation, e.g :=, _
+	lit *lite  // literal
+	exp *expr  // expression
 }
 
-func newFun(typ string) *fun {
+// newFun generates and returns a new function.
+func newFun(typ string) *fnct {
 	if typ == "-" {
 		typ = "int"
 	}
-	f := &fun{
-		nam: newId("f")+"_ssa",
+	f := &fnct{
+		nam: newId("f") + "_ssa",
 		typ: typ,
 	}
 
@@ -79,7 +81,7 @@ func newFun(typ string) *fun {
 	return f
 }
 
-func (f *fun) dump(w io.Writer) {
+func (f *fnct) dump(w io.Writer) {
 	fmt.Fprintf(w, "func %s() %s {\n", f.nam, f.typ)
 	fmt.Fprintf(w, "switch {} // prevent inlining\n")
 	for i := range f.stm {
@@ -88,7 +90,7 @@ func (f *fun) dump(w io.Writer) {
 	fmt.Fprintf(w, "}\n")
 }
 
-func (f *fun) newLite(typ string) *lite {
+func (f *fnct) newLite(typ string) *lite {
 	// placeholder.
 	var nl, ns int
 	nl, f.lit = len(f.lit), append(f.lit, lite{})
@@ -110,9 +112,17 @@ func (f *fun) newLite(typ string) *lite {
 	return &f.lit[nl]
 }
 
+// conv returns an expression that converts e to typ.
 func conv(e *expr, typ string) *expr {
-	if typ == e.typ {
+	if typ == e.typ && e.atm { // already atom and of correct type
 		return e
+	}
+	if typ == e.typ { // correcty type, but not an atom
+		return &expr{
+			typ: typ,
+			str: fmt.Sprintf("(%s)", e.str),
+			atm: true,
+		}
 	}
 	return &expr{
 		typ: typ,
@@ -121,8 +131,8 @@ func conv(e *expr, typ string) *expr {
 	}
 }
 
-// Returns a random lit. Returns nil if none is found.
-func (f *fun) getLit(typ string) *lite {
+// getLit returns a random live literal. Returns nil if none is found.
+func (f *fnct) getLit(typ string) *lite {
 	if len(f.lit) == 0 {
 		return nil
 	}
@@ -135,12 +145,12 @@ func (f *fun) getLit(typ string) *lite {
 	return nil
 }
 
-func (f *fun) newExpr(typ string, dep int) *expr {
+func (f *fnct) newExpr(typ string, dep int) *expr {
 	if rnd(exprDepth) == 0 || dep > exprDepth {
 	loop:
-		switch rnd(5) {
+		switch rnd(3) {
 		case 0: // constant
-			if rnd(10) != 0 { // don't generate many constants
+			if rnd(25) != 0 { // don't generate many constants
 				break
 			}
 			return &expr{
@@ -148,19 +158,17 @@ func (f *fun) newExpr(typ string, dep int) *expr {
 				str: fmt.Sprintf("%d", rnd(4)),
 				atm: true,
 			}
-
 		case 1: // new lit
 			if typ == "-" || len(f.lit) >= numVariables {
 				break
 			}
-
 			l := f.newLite(typ)
 			return &expr{
 				typ: l.typ,
 				str: l.nam,
 				atm: true,
 			}
-		case 3: // reuse lit
+		case 2: // reuse lit
 			if l := f.getLit(typ); l != nil {
 				return conv(&expr{
 					typ: l.typ,
@@ -226,7 +234,7 @@ func (s *stmt) dump(w io.Writer) {
 	case "return":
 		fmt.Fprintf(w, "return %s\n", s.exp.str)
 	case ":=":
-		if s.exp.typ == "-" {
+		if s.exp.typ == "-" && s.lit.typ != "int" {
 			fmt.Fprintf(w, "%s := %s(%s) // %s\n", s.lit.nam, s.lit.typ, s.exp.str, s.lit.typ)
 		} else {
 			fmt.Fprintf(w, "%s := %s // %s\n", s.lit.nam, s.exp.str, s.lit.typ)
@@ -247,6 +255,7 @@ func rndBool() bool {
 	return rnd(2) == 0
 }
 
+// choice returns a random element from ch.
 func choice(ch ...string) string {
 	return ch[rnd(len(ch))]
 }
