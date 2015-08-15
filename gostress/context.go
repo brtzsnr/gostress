@@ -11,8 +11,8 @@ var (
 	idSeq      = make(map[string]int)
 
 	exprDepth     = 4
-	numVariables  = 10
-	numStatements = 10
+	numVariables  = 5
+	numStatements = 20
 	numArgs       = 5
 )
 
