@@ -14,7 +14,12 @@ while `true`; do
   fi
 
   # generate the same program but now it tests the result.
-  ./tmp.a$$ > tmp.good$$
+  ./tmp.a$$ > tmp.good$$ 2> /dev/null
+  if [ $? -ne 0 ]; then
+    echo panic $seed
+    continue
+  fi
+
   gostress -seed $seed -out tmp.a$$.go -want `cat tmp.good$$`
 
   GOROOT=$HOME/go $HOME/go/bin/go build tmp.a$$.go 2> tmp.log$$
@@ -28,6 +33,6 @@ while `true`; do
   if [ $? -ne 0 ]; then
     echo failed $seed
     cp tmp.a$$.go failed-$seed.go
-    continue
+    exit 1
   fi
 done

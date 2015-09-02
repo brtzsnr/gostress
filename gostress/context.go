@@ -7,12 +7,12 @@ import (
 )
 
 var (
-	basicTypes = []string{"int", "uint", "int8", "uint8", "int64", "uint64"}
+	basicTypes = []string{"bool", "int", "uint", "int8", "uint8", "int64", "uint64"}
 	idSeq      = make(map[string]int)
 
-	exprDepth     = 4
+	exprDepth     = 5
 	numVariables  = 5
-	numStatements = 20
+	numStatements = 10
 	numArgs       = 5
 )
 
@@ -62,7 +62,7 @@ func newFnct(typ string) *fnct {
 	}
 
 	for i := 0; i < numStatements; i++ {
-		switch o := choice(":=", "=", "+=", "-=", "*=", "++", "--"); o {
+		switch o := choice(":=", "=", "+=", "-=", "*=", "<<=", ">>=", "++", "--"); o {
 		case "return":
 			f.stm = append(f.stm, stmt{
 				opr: "return",
@@ -80,6 +80,14 @@ func newFnct(typ string) *fnct {
 					opr: o,
 					lit: l,
 					exp: f.newExpr(l.typ, 0),
+				})
+			}
+		case "<<=", ">>=":
+			if l := f.getVariable(""); l != nil {
+				f.stm = append(f.stm, stmt{
+					opr: o,
+					lit: l,
+					exp: f.newExpr("uint", 0),
 				})
 			}
 		case "++", "--":
@@ -134,15 +142,34 @@ func (f *fnct) newVariable(typ string) *vrbl {
 	return &f.lit[nl]
 }
 
-// conv returns an expression that converts e to typ.
-func conv(e *expr, typ string) *expr {
-	if typ == e.typ && e.atm { // already atom and of correct type
+func atom(e *expr) *expr {
+	if e.atm {
 		return e
 	}
-	if typ == e.typ { // correcty type, but not an atom
+		return &expr{
+			typ: e.typ,
+			str: fmt.Sprintf("(%s)", e.str),
+			atm: true,
+		}
+}
+
+// conv returns an expression that converts e to typ.
+func conv(e *expr, typ string) *expr {
+	if typ == e.typ { // already of correct type
+		return atom(e)
+	}
+
+	if typ == "bool" {
 		return &expr{
 			typ: typ,
-			str: fmt.Sprintf("(%s)", e.str),
+			str: fmt.Sprintf("(%s > 0)", atom(e).str),
+			atm: true,
+		}
+	}
+	if e.typ == "bool" {
+		return &expr{
+			typ: typ,
+			str: fmt.Sprintf("map[bool]%s{false: %s, true: %s}[%s]", typ, conv(constant(), typ).str, conv(constant(), typ).str, e.str),
 			atm: true,
 		}
 	}
@@ -175,6 +202,21 @@ func (f *fnct) getVariable(typ string) *vrbl {
 
 // getLiteral returns a constant or a variable.
 func (f *fnct) getLiteral(typ string) *expr {
+	if typ == "bool" {
+		if rnd(2) == 0 {
+			return &expr {
+				typ: "bool",
+				str: "true",
+				atm: true,
+			}
+		} else {
+			return &expr {
+				typ: "bool",
+				str: "false",
+				atm: true,
+			}
+		}
+	}
 	if rnd(25) == 0 { // don't generate many constants
 		return constant()
 	}
@@ -215,18 +257,49 @@ func (f *fnct) newExpr(typ string, dep int) *expr {
 		return f.getLiteral(typ)
 	}
 
+	var ops []string
+	if typ == "bool" {
+		ops = []string{"&&", "||", "!=", "==", "conv"}
+	} else {
+		ops = []string{"+", "-", "*", /*"/", "%", */ "&", "|", "^", "()", "<<", ">>", "++", "--", "conv"}
+	}
+
 retry:
-	switch op := choice("+", "-", "*", "&", "|", "^", "()", "<<", ">>", "++", "--", "conv"); op {
-	case "+", "-", "*", "&", "|", "^":
+	switch op := choice(ops...); op {
+	case "&&", "||":
+		l := f.newExpr(typ, dep+1)
+		r := f.newExpr(typ, dep+1)
+		return &expr{
+			typ: typ,
+			str: fmt.Sprintf("%s %s %s", l.str, op, r.str),
+		}
+
+	case "!=", "==":
+		ntyp := choice(basicTypes...)
+		l := f.newExpr(ntyp, dep+1)
+		r := f.newExpr(ntyp, dep+1)
+		return &expr{
+			typ: typ,
+			str: fmt.Sprintf("%s %s %s", l.str, op, r.str),
+		}
+	
+	case "+", "-", "*", "/", "%", "&", "|", "^":
 		l := f.newExpr(typ, dep+1)
 		r := f.newExpr(typ, dep+1)
 		if l.typ == "-" && r.typ == "-" {
 			typ = "-"
 		}
 
-		return &expr{
-			typ: typ,
-			str: fmt.Sprintf("%s %s %s", l.str, op, r.str),
+		if op != "/" && op != "%" {
+			return &expr{
+				typ: typ,
+				str: fmt.Sprintf("%s %s %s", l.str, op, r.str),
+			}
+		} else {
+			return &expr{
+				typ: typ,
+				str: fmt.Sprintf("%s %s (1|(%s))", l.str, op, r.str),
+			}
 		}
 	case ">>", "<<":
 		l := conv(f.newExpr(typ, dep+1), typ)
