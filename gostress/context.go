@@ -76,7 +76,7 @@ func (e *expr) String() string {
 	case "token":
 		return e.tok
 	default:
-		return fmt.Sprintf("%s %s %s", e.lft, e.opr, e.rgt)
+		return fmt.Sprintf("%s %s %s", e.lft, e.opr, prec(e.rgt, "()"))
 	}
 }
 
@@ -214,8 +214,6 @@ func (f *fnct) newVariable(typ string) *expr {
 		lit: lit,
 		exp: e,
 	}
-	fmt.Printf("lit %#v\n", lit)
-	fmt.Printf("stm %#v\n", stm.exp)
 	f.lit = append(f.lit, lit)
 	f.stm = append(f.stm, stm)
 	return lit
@@ -309,10 +307,10 @@ retry:
 	case ">>", "<<":
 		l := f.newExpr(typ, dep+1)
 		r := f.newExpr(choice("-", "uint", "uint8", "uint16", "uint32", "uint64"), dep+1)
-		l, r = prec(l, op), prec(r, op)
 		if l.typ == "-" {
 			l = conv(l, typ)
 		}
+		l, r = prec(l, op), prec(r, op)
 		return &expr{typ: typ, opr: op, lft: l, rgt: r}
 	case "conv":
 		if typ == "-" || rnd(5) != 0 {
