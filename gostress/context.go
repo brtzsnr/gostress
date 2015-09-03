@@ -9,13 +9,14 @@ import (
 const (
 	exprDepth     = 4
 	numVariables  = 5
-	numStatements = 5
-	numArgs       = 1
+	numStatements = 20
+	numArgs       = 5
 )
 
 var (
 	// basic expression types. - is untyped integer.
-	basicTypes = []string{ /*"bool",*/ "int", "uint", "int8", "uint8", "int64", "uint64"}
+	basicTypes = []string{"bool", "int", "uint", "int8", "uint8", "int64", "uint64"}
+	intTypes   = []string{"int", "uint", "int8", "uint8", "int64", "uint64"}
 	// maps prefix to next unused ids
 	idSeq = make(map[string]int)
 	// operator precendence
@@ -98,6 +99,23 @@ func conv(e *expr, typ string) *expr {
 		return prec(e, "conv")
 	}
 
+	if typ == "bool" {
+		return &expr{
+			typ: "bool",
+			opr: choice("<", "<=", ">", ">=", "!=", "=="),
+			lft: e,
+			rgt: constant("-"),
+		}
+	}
+
+	if e.typ == "bool" {
+		return conv(&expr{
+			typ: "int",
+			opr: "token",
+			tok: fmt.Sprintf("b2i[%s]", e),
+		}, typ)
+	}
+
 	return &expr{
 		typ: typ,
 		opr: "conv",
@@ -107,6 +125,14 @@ func conv(e *expr, typ string) *expr {
 
 // constant returns a constant of type typ.
 func constant(typ string) *expr {
+	if typ == "bool" {
+		return &expr{
+			typ: "bool",
+			opr: "token",
+			tok: fmt.Sprint(1 == rnd(2)),
+		}
+	}
+
 	return &expr{
 		typ: "-",
 		opr: "token",
@@ -140,7 +166,14 @@ func newFnct(typ string) *fnct {
 	}
 
 	for i := 0; i < numStatements; i++ {
-		switch o := choice(":=", "=", "+=", "-=", "*=", "<<=", ">>=", "++", "--"); o {
+		var op string
+		if typ == "bool" {
+			op = choice(":=", "=")
+		} else {
+			op = choice(":=", "=", "+=", "-=", "*=", "<<=", ">>=", "++", "--")
+		}
+
+		switch op {
 		case "return":
 			f.stm = append(f.stm, &stmt{
 				opr: "return",
@@ -152,26 +185,34 @@ func newFnct(typ string) *fnct {
 				opr: "_",
 				lit: l,
 			})
-		case "=", "+=", "-=", "*=":
-			if l := f.getVariable(""); l != nil {
+		case "=":
+			if l := f.getVariable(choice(basicTypes...)); l != nil {
 				f.stm = append(f.stm, &stmt{
-					opr: o,
+					opr: op,
+					lit: l,
+					exp: f.newExpr(l.typ, 0),
+				})
+			}
+		case "+=", "-=", "*=":
+			if l := f.getVariable(choice(intTypes...)); l != nil {
+				f.stm = append(f.stm, &stmt{
+					opr: op,
 					lit: l,
 					exp: f.newExpr(l.typ, 0),
 				})
 			}
 		case "<<=", ">>=":
-			if l := f.getVariable(""); l != nil {
+			if l := f.getVariable(choice(intTypes...)); l != nil {
 				f.stm = append(f.stm, &stmt{
-					opr: o,
+					opr: op,
 					lit: l,
 					exp: f.newExpr("uint", 0),
 				})
 			}
 		case "++", "--":
-			if l := f.getVariable(""); l != nil {
+			if l := f.getVariable(choice(intTypes...)); l != nil {
 				f.stm = append(f.stm, &stmt{
-					opr: o,
+					opr: op,
 					lit: l,
 				})
 			}
@@ -228,13 +269,13 @@ func (f *fnct) getVariable(typ string) *expr {
 	if rnd(2) == 0 && len(f.lit) > 0 {
 		// Pick an already defined literal.
 		l := f.lit[rnd(len(f.lit))]
-		if typ == "" || l.typ == typ {
+		if l.typ == typ {
 			return l
 		}
 	} else if len(f.arg) > 0 {
 		// Pick an argument.
 		l := f.arg[rnd(len(f.arg))]
-		if typ == "" || l.typ == typ {
+		if l.typ == typ {
 			return l
 		}
 	}
