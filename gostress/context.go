@@ -151,7 +151,7 @@ func newBlock(f *fnct, depth int) {
 	nlit := len(f.lit)
 
 	for i := 0; !quit && i < numStatements; i++ {
-		op := choice("if", "return", ":=", "=", "+=", "-=", "*=", "<<=", ">>=", "++", "--")
+		op := choice("if", "return", ":=", "=", "+=", "-=", "*=", "<<=", ">>=", "&=", "|=", "&^=", "++", "--")
 
 		switch op {
 		case "if":
@@ -189,7 +189,7 @@ func newBlock(f *fnct, depth int) {
 					exp: f.newExpr(l.typ, 0),
 				})
 			}
-		case "+=", "-=", "*=":
+		case "+=", "-=", "*=", "&=", "|=", "&^=":
 			if l := f.getVariable(choice(intTypes...)); l != nil {
 				f.stm = append(f.stm, &stmt{
 					opr: op,
