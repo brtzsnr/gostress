@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	exprDepth     = 4
-	numVariables  = 5
-	numStatements = 20
-	numArgs       = 5
+	exprDepth     = 3
+	numVariables  = 10
+	numStatements = 15
+	numArgs       = 10
 )
 
 var (
@@ -146,39 +146,35 @@ type stmt struct {
 	exp *expr  // expression
 }
 
-// newFnct generates and returns a new function.
-func newFnct(typ string) *fnct {
-	if typ == "-" {
-		typ = "int"
-	}
-	f := &fnct{
-		nam: newId("f") + "_ssa",
-		typ: typ,
-	}
+func newBlock(f *fnct, depth int) {
+	quit := false
+	nlit := len(f.lit)
 
-	argc := rnd(numArgs + 1)
-	for i := 0; i < argc; i++ {
-		f.arg = append(f.arg, &expr{
-			typ: choice(basicTypes...),
-			opr: "token",
-			tok: newId("a"),
-		})
-	}
-
-	for i := 0; i < numStatements; i++ {
-		var op string
-		if typ == "bool" {
-			op = choice(":=", "=")
-		} else {
-			op = choice(":=", "=", "+=", "-=", "*=", "<<=", ">>=", "++", "--")
-		}
+	for i := 0; !quit && i < numStatements; i++ {
+		op := choice("if", "return", ":=", "=", "+=", "-=", "*=", "<<=", ">>=", "++", "--")
 
 		switch op {
+		case "if":
+			if rnd(3) != 0 {
+				break
+			}
+			f.stm = append(f.stm, &stmt{
+				opr: "if",
+				exp: f.newExpr("bool", 0),
+			})
+			newBlock(f, depth+1)
+			f.stm = append(f.stm, &stmt{
+				opr: "}",
+			})
 		case "return":
+			if rnd(numStatements) != 0 {
+				break
+			}
 			f.stm = append(f.stm, &stmt{
 				opr: "return",
-				exp: f.newExpr(typ, 0),
+				exp: f.newExpr(f.typ, 0),
 			})
+			quit = true
 		case ":=":
 			l := f.newVariable(choice(basicTypes...))
 			f.stm = append(f.stm, &stmt{
@@ -219,10 +215,35 @@ func newFnct(typ string) *fnct {
 		}
 	}
 
-	f.stm = append(f.stm, &stmt{
-		opr: "return",
-		exp: f.newExpr(typ, 0),
-	})
+	if depth == 0 && !quit {
+		f.stm = append(f.stm, &stmt{
+			opr: "return",
+			exp: f.newExpr(f.typ, 0),
+		})
+	}
+	f.lit = f.lit[:nlit]
+}
+
+// newFnct generates and returns a new function.
+func newFnct(typ string) *fnct {
+	if typ == "-" {
+		typ = "int"
+	}
+	f := &fnct{
+		nam: newId("f") + "_ssa",
+		typ: typ,
+	}
+
+	argc := rnd(numArgs + 1)
+	for i := 0; i < argc; i++ {
+		f.arg = append(f.arg, &expr{
+			typ: choice(basicTypes...),
+			opr: "token",
+			tok: newId("a"),
+		})
+	}
+
+	newBlock(f, 0)
 	return f
 }
 
@@ -285,7 +306,7 @@ func (f *fnct) getVariable(typ string) *expr {
 
 // getLiteral returns a constant or a variable.
 func (f *fnct) getLiteral(typ string) *expr {
-	if rnd(25) == 0 { // don't generate many constants
+	if rnd(50) == 0 { // don't generate many constants
 		return constant(typ)
 	}
 	if l := f.getVariable(typ); l != nil {
@@ -366,6 +387,10 @@ retry:
 
 func (s *stmt) dump(w io.Writer) {
 	switch s.opr {
+	case "if":
+		fmt.Fprintf(w, "if %s {\n", s.exp)
+	case "}":
+		fmt.Fprintf(w, "}\n")
 	case "return":
 		fmt.Fprintf(w, "return %s\n", s.exp)
 	case ":=", "=", "+=", "-=", "*=":
