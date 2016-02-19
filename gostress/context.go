@@ -9,7 +9,7 @@ import (
 const (
 	exprDepth     = 3
 	numVariables  = 10
-	numStatements = 15
+	numStatements = 25
 	numArgs       = 10
 )
 
@@ -112,7 +112,7 @@ func conv(e *expr, typ string) *expr {
 		return conv(&expr{
 			typ: "int",
 			opr: "token",
-			tok: fmt.Sprintf("b2i[%s]", e),
+			tok: fmt.Sprintf("b2i(%s)", e),
 		}, typ)
 	}
 
