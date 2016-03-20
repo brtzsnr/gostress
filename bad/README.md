@@ -5,7 +5,6 @@ and then check the output or the generated ssa.html file.
 # Bad
 * bad0.go - extra store at v17
 * bad4.go - extra store at v8
-* bad6.go - missed constant folding v153
 * bad8.go - redundant comparison at b12
 * bad11.go - redundant comparison at b2
 * bad12.go - redundant comparison at b2
@@ -17,5 +16,6 @@ and then check the output or the generated ssa.html file.
 * bad18.go - many redundant branches
 
 # Fixed
+* bad6.go - missed constant folding v153
 * bad7.go - redundant comparison at b10
 * bad9.go - missed comparison folding v33
